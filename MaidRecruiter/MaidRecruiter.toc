@@ -1,0 +1,11 @@
+## Interface: 16001
+## Interface-Camelot: 16001
+## Title: Maid Recruiter
+## Notes: Catch whispers and click to post recruitment for Domestic Catgirl Corp. /maid
+## Author: Domestic Catgirl Corp
+## Version: 1.0.0
+## SavedVariables: MaidRecruiterDB
+
+Core.lua
+UI.lua
+Config.lua

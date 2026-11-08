@@ -1,0 +1,16 @@
+<Bindings>
+	<Binding name="MAIDRECRUITER_REPLY1" header="MAIDRECRUITER" category="ADDONS">MaidRecruiter_FireReply(1)</Binding>
+	<Binding name="MAIDRECRUITER_REPLY2" category="ADDONS">MaidRecruiter_FireReply(2)</Binding>
+	<Binding name="MAIDRECRUITER_REPLY3" category="ADDONS">MaidRecruiter_FireReply(3)</Binding>
+	<Binding name="MAIDRECRUITER_REPLY4" category="ADDONS">MaidRecruiter_FireReply(4)</Binding>
+	<Binding name="MAIDRECRUITER_REPLY5" category="ADDONS">MaidRecruiter_FireReply(5)</Binding>
+	<Binding name="MAIDRECRUITER_REPLY6" category="ADDONS">MaidRecruiter_FireReply(6)</Binding>
+	<Binding name="MAIDRECRUITER_REPLY7" category="ADDONS">MaidRecruiter_FireReply(7)</Binding>
+	<Binding name="MAIDRECRUITER_REPLY8" category="ADDONS">MaidRecruiter_FireReply(8)</Binding>
+	<Binding name="MAIDRECRUITER_CAST1" category="ADDONS">MaidRecruiter_FireBroadcast(1)</Binding>
+	<Binding name="MAIDRECRUITER_CAST2" category="ADDONS">MaidRecruiter_FireBroadcast(2)</Binding>
+	<Binding name="MAIDRECRUITER_CAST3" category="ADDONS">MaidRecruiter_FireBroadcast(3)</Binding>
+	<Binding name="MAIDRECRUITER_CAST4" category="ADDONS">MaidRecruiter_FireBroadcast(4)</Binding>
+	<Binding name="MAIDRECRUITER_CAST5" category="ADDONS">MaidRecruiter_FireBroadcast(5)</Binding>
+	<Binding name="MAIDRECRUITER_CAST6" category="ADDONS">MaidRecruiter_FireBroadcast(6)</Binding>
+</Bindings>
