@@ -152,6 +152,48 @@ function NS:PlainName(sender)
 	return sender
 end
 
+function NS:CompactRealm(realm)
+	if self:IsSecret(realm) or type(realm) ~= "string" then
+		return ""
+	end
+	return (realm:gsub("%s+", "")):lower()
+end
+
+function NS:IsMyRealm(realm)
+	local compact = self:CompactRealm(realm)
+	if compact == "" then
+		return false
+	end
+	if type(GetRealmName) == "function" then
+		local mine = self:CompactRealm(GetRealmName())
+		if mine ~= "" and mine == compact then
+			return true
+		end
+	end
+	if type(GetNormalizedRealmName) == "function" then
+		local mine = self:CompactRealm(GetNormalizedRealmName())
+		if mine ~= "" and mine == compact then
+			return true
+		end
+	end
+	return false
+end
+
+function NS:AmbiguateName(name)
+	if self:IsSecret(name) or type(name) ~= "string" or name == "" then
+		return ""
+	end
+	if type(Ambiguate) == "function" then
+		local ok, short = pcall(Ambiguate, name, "none")
+		if ok and type(short) == "string" and short ~= "" and not self:IsSecret(short) then
+			return short
+		end
+	end
+	return name
+end
+
+-- Same-realm whisper targets are the bare character name. A realm glued on
+-- with spaces (this client's GetRealmName) is not a name the game will deliver.
 function NS:CanonicalName(sender)
 	if self:IsSecret(sender) then
 		return ""
@@ -160,13 +202,18 @@ function NS:CanonicalName(sender)
 	if sender == "" then
 		return ""
 	end
-	if not sender:find("-", 1, true) and type(GetRealmName) == "function" then
-		local realm = GetRealmName()
-		if type(realm) == "string" and realm ~= "" and not self:IsSecret(realm) then
-			sender = sender .. "-" .. realm
-		end
+	local name, realm = sender:match("^(.-)%-(.+)$")
+	if not name or name == "" or not realm or realm == "" then
+		return self:AmbiguateName(sender)
 	end
-	return sender
+	if self:IsMyRealm(realm) then
+		return self:AmbiguateName(name)
+	end
+	local compactRealm = realm:gsub("%s+", "")
+	if compactRealm ~= realm then
+		return self:AmbiguateName(name .. "-" .. compactRealm)
+	end
+	return self:AmbiguateName(name .. "-" .. realm)
 end
 
 function NS:ShortName(full)
@@ -237,6 +284,9 @@ local function RepairConversation(value)
 	if type(value.unread) ~= "boolean" then
 		value.unread = false
 	end
+	if type(value.guid) ~= "string" or value.guid == "" then
+		value.guid = nil
+	end
 	while #value.lines > NS.MAX_HISTORY do
 		table.remove(value.lines, 1)
 	end
@@ -304,25 +354,50 @@ function NS:InitDB()
 	end
 	local kept = {}
 	local order = {}
+	local merged = {}
+	local consumed = {}
 	for index = 1, #db.tabOrder do
-		local name = db.tabOrder[index]
-		if type(name) == "string" and name ~= "" and not kept[name] and type(db.conversations[name]) == "table" then
-			kept[name] = true
-			db.conversations[name] = RepairConversation(db.conversations[name])
-			order[#order + 1] = name
+		local oldName = db.tabOrder[index]
+		if type(oldName) == "string" and oldName ~= "" and not consumed[oldName] and type(db.conversations[oldName]) == "table" then
+			consumed[oldName] = true
+			local name = self:CanonicalName(oldName)
+			if name == "" then
+				name = oldName
+			end
+			local convo = RepairConversation(db.conversations[oldName])
+			local existing = merged[name]
+			if existing then
+				for lineIndex = 1, #convo.lines do
+					existing.lines[#existing.lines + 1] = convo.lines[lineIndex]
+				end
+				while #existing.lines > self.MAX_HISTORY do
+					table.remove(existing.lines, 1)
+				end
+				if existing.draft == "" and convo.draft ~= "" then
+					existing.draft = convo.draft
+				end
+				if not existing.guid and convo.guid then
+					existing.guid = convo.guid
+				end
+				existing.unread = existing.unread or convo.unread
+			else
+				merged[name] = convo
+				kept[name] = true
+				order[#order + 1] = name
+			end
 		end
 	end
+	db.conversations = merged
 	db.tabOrder = order
-	for name in pairs(db.conversations) do
-		if not kept[name] then
-			db.conversations[name] = nil
+	if type(db.activeTab) ~= "string" or db.activeTab == "" then
+		db.activeTab = "BROADCAST"
+	elseif db.activeTab ~= "BROADCAST" then
+		local active = self:CanonicalName(db.activeTab)
+		if active ~= "" and kept[active] then
+			db.activeTab = active
+		else
+			db.activeTab = "BROADCAST"
 		end
-	end
-	if db.activeTab ~= "BROADCAST" and not kept[db.activeTab] then
-		db.activeTab = "BROADCAST"
-	end
-	if type(db.activeTab) ~= "string" then
-		db.activeTab = "BROADCAST"
 	end
 	if type(db.openOnWhisper) ~= "boolean" then
 		db.openOnWhisper = true
@@ -439,26 +514,15 @@ function NS:PlayReminderSound()
 	end
 end
 
-local function FriendlySendError(err)
-	local text = tostring(err or "")
-	local lower = text:lower()
-	if lower:find("hardware", 1, true) or lower:find("protected", 1, true) then
-		return "The game blocked that send. Click the button, or press its keybind, while you are in a city."
-	end
-	return "Could not send. " .. text
-end
-
 function NS:SendChunks(chunks, chatType, target)
 	if type(SendChatMessage) ~= "function" then
 		self:SetStatus("Chat sending is not available.", true)
 		return false
 	end
+	-- Called directly from the click or key handler. pcall would drop the
+	-- hardware-event flag and the client would reject yell, say, and channel.
 	for index = 1, #chunks do
-		local ok, err = pcall(SendChatMessage, chunks[index], chatType, nil, target)
-		if not ok then
-			self:SetStatus(FriendlySendError(err), true)
-			return false
-		end
+		SendChatMessage(chunks[index], chatType, nil, target)
 	end
 	return true
 end
@@ -489,12 +553,17 @@ function NS:SendWhisper(fullName, text)
 		self:SetStatus("Open a person's tab first.", true)
 		return false
 	end
+	local target = self:CanonicalName(fullName)
+	if target == "" then
+		self:SetStatus("That player name cannot be whispered.", true)
+		return false
+	end
 	local chunks, rest = self:SplitMessage(text)
 	if #chunks == 0 then
 		self:SetStatus("Nothing to send.", true)
 		return false
 	end
-	if not self:SendChunks(chunks, "WHISPER", fullName) then
+	if not self:SendChunks(chunks, "WHISPER", target) then
 		return false
 	end
 	local convo = self:GetConversation(fullName)
@@ -503,11 +572,36 @@ function NS:SendWhisper(fullName, text)
 		self:RefreshReplyBox()
 	end
 	if rest and rest ~= "" then
-		self:SetStatus("Sent " .. #chunks .. " parts. The box still has the rest.")
+		self:SetStatus("Sent " .. #chunks .. " parts to " .. target .. ". The box still has the rest.")
 	else
-		self:SetStatus("Whispered " .. self:ShortName(fullName) .. ".")
+		self:SetStatus("Whispered " .. target .. ".")
 	end
 	return true
+end
+
+function NS:SubmitReply(text)
+	local now = nil
+	if type(GetTime) == "function" then
+		now = GetTime()
+	end
+	if self._sendingReply then
+		return false
+	end
+	if now and self._replySentAt and (now - self._replySentAt) < 0.05 then
+		return self._replySentOk and true or false
+	end
+	self._sendingReply = true
+	local active = MaidRecruiterDB and MaidRecruiterDB.activeTab
+	local ok = false
+	if not active or active == "" or active == "BROADCAST" then
+		self:SetStatus("Open a person's tab first.", true)
+	else
+		ok = self:SendWhisper(active, text or "") and true or false
+	end
+	self._sendingReply = false
+	self._replySentAt = now
+	self._replySentOk = ok
+	return ok
 end
 
 function NS:SendQuickReply(index)

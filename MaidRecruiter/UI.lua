@@ -83,6 +83,9 @@ function NS:CreateScroller(parent)
 		end
 		bar:SetValue(nextValue)
 	end
+	if scroll.SetClipsChildren then
+		scroll:SetClipsChildren(true)
+	end
 	scroll:EnableMouseWheel(true)
 	scroll:SetScript("OnMouseWheel", OnWheel)
 	holder:EnableMouseWheel(true)
@@ -987,6 +990,7 @@ function NS:BuildUI()
 	ui.broadcastEmpty:SetText("Add a broadcast in Settings.")
 
 	ui.replyBar = CreateFrame("Frame", nil, frame)
+	ui.replyBar:SetFrameLevel(frame:GetFrameLevel() + 15)
 	ui.sendButton = self:CreatePushButton(ui.replyBar, "Send", 72, 30)
 	ui.sendButton:SetPoint("RIGHT", ui.replyBar, "RIGHT", 0, 0)
 	ui.sendButton.tipTitle = "Send this whisper"
@@ -995,6 +999,9 @@ function NS:BuildUI()
 	ui.replyEdit:SetPoint("RIGHT", ui.sendButton, "LEFT", -6, 0)
 	ui.replyEdit:SetHeight(30)
 	ui.replyEdit:SetAutoFocus(false)
+	ui.replyEdit:SetMultiLine(false)
+	ui.replyEdit:EnableMouse(true)
+	ui.replyEdit:EnableKeyboard(true)
 	ui.replyEdit:SetFontObject(ChatFontNormal)
 	ui.replyEdit:SetTextInsets(8, 8, 0, 0)
 	ui.replyEdit:SetMaxLetters(self.MAX_INPUT)
@@ -1002,11 +1009,14 @@ function NS:BuildUI()
 	ui.replyEdit.placeholder = ui.replyEdit:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	ui.replyEdit.placeholder:SetPoint("LEFT", 10, 0)
 	ui.replyEdit.placeholder:SetText("Write a whisper")
-	ui.replyEdit:SetScript("OnEnterPressed", function(edit)
-		local active = MaidRecruiterDB.activeTab
-		if active and active ~= "BROADCAST" then
-			NS:SendWhisper(active, edit:GetText() or "")
+	local function SubmitEdit(edit)
+		local text = edit:GetText() or ""
+		if NS:SubmitReply(text) then
+			edit:ClearFocus()
 		end
+	end
+	ui.replyEdit:SetScript("OnEnterPressed", function(edit)
+		SubmitEdit(edit)
 	end)
 	ui.replyEdit:SetScript("OnEscapePressed", function(edit)
 		edit:ClearFocus()
@@ -1023,10 +1033,7 @@ function NS:BuildUI()
 		end
 	end)
 	ui.sendButton:SetScript("OnClick", function()
-		local active = MaidRecruiterDB.activeTab
-		if active and active ~= "BROADCAST" then
-			NS:SendWhisper(active, ui.replyEdit:GetText() or "")
-		end
+		NS:SubmitReply(ui.replyEdit:GetText() or "")
 	end)
 
 	ui.reminder = CreateFrame("Frame", nil, frame, "BackdropTemplate")
@@ -1058,7 +1065,7 @@ function NS:BuildUI()
 	ui.grip = CreateFrame("Button", nil, frame)
 	ui.grip:SetSize(16, 16)
 	ui.grip:SetPoint("BOTTOMRIGHT", -2, 2)
-	ui.grip:SetFrameLevel(frame:GetFrameLevel() + 20)
+	ui.grip:SetFrameLevel(frame:GetFrameLevel() + 40)
 	ui.grip.mark = ui.grip:CreateTexture(nil, "OVERLAY")
 	ui.grip.mark:SetAllPoints()
 	if ui.grip.mark.SetColorTexture then

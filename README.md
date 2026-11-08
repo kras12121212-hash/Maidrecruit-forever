@@ -4,7 +4,7 @@ A whisper desk for recruiting into **Domestic Catgirl Corp**.
 
 Incoming whispers become tabs. Saved replies go out with one click. Recruitment lines post to yell, say, guild chat, or a joined channel only when you click them. A reminder tells you when it is time to recruit again. It never sends chat for you.
 
-Interface **16001** (`Interface-Camelot`). Version 1.0.0.
+Interface **16001** (`Interface-Camelot`). Version 1.0.1.
 
 ## Install
 
@@ -33,6 +33,7 @@ The **Recruit** tab is home. Everyone who whispers you gets a tab with their nam
 - An unread tab is marked until you look at it.
 - The last 50 lines of each conversation are kept, including whispers you send from the normal chat box.
 - Type in **Write a whisper** and press Enter or **Send**.
+- A same-realm reply goes to the character name only. Version 1.0.0 sometimes saved the realm on the end, spaces and all, and the client would not deliver that. Reload once and the old tab is renamed.
 - Close a tab with the `x` on that tab. That drops its history.
 
 ## Quick replies
